@@ -1,0 +1,96 @@
+# Social Mimic Backend - Serverless Configuration
+# Provider: Google Cloud Functions
+# Framework: Serverless Framework v3
+
+service: social-mimic-api
+
+frameworkVersion: '3'
+
+provider:
+  name: google
+  runtime: nodejs20
+  region: us-central1
+  project: ${env:GCP_PROJECT, 'boilerplate-prod-469622'}
+  
+  # Credenciales - usa Application Default Credentials
+  credentials: ${env:GOOGLE_APPLICATION_CREDENTIALS, '~/.config/gcloud/application_default_credentials.json'}
+
+  # Variables de entorno globales
+  environment:
+    NODE_ENV: ${opt:stage, 'dev'}
+    LOG_LEVEL: ${opt:stage, 'dev'} == 'prod' ? 'warn' : 'debug'
+    # Database
+    DATABASE_URL: ${env:DATABASE_URL, ''}
+    REDIS_URL: ${env:REDIS_URL, ''}
+    # AI Services
+    GROQ_API_KEY: ${env:GROQ_API_KEY, ''}
+    GROQ_MODEL: ${env:GROQ_MODEL, 'llama-3.1-70b-versatile'}
+    # Auth
+    JWT_SECRET: ${env:JWT_SECRET, ''}
+
+plugins:
+  - serverless-google-cloudfunctions
+  - serverless-offline
+
+custom:
+  # Configuración de desarrollo local
+  serverless-offline:
+    httpPort: 3000
+    lambdaPort: 3002
+  
+  # Stages
+  stages:
+    dev:
+      memory: 256
+      timeout: 60
+    prod:
+      memory: 512
+      timeout: 120
+
+# ============================================
+# FUNCTIONS (Cloud Functions)
+# ============================================
+
+functions:
+  # Health Check
+  health:
+    handler: src/functions/health.handler
+    events:
+      - http: health
+    memorySize: 128
+    timeout: 10s
+
+  # Profiles API
+  profiles:
+    handler: src/functions/profiles.handler
+    events:
+      - http: api/v1/profiles
+    memorySize: ${self:custom.stages.${opt:stage, 'dev'}.memory}
+    timeout: ${self:custom.stages.${opt:stage, 'dev'}.timeout}s
+
+  # Content Generation API
+  content:
+    handler: src/functions/content.handler
+    events:
+      - http: api/v1/content
+    memorySize: 512  # Más memoria para procesamiento AI
+    timeout: 120s    # Más tiempo para generación de contenido
+
+  # Analytics API
+  analytics:
+    handler: src/functions/analytics.handler
+    events:
+      - http: api/v1/analytics
+    memorySize: ${self:custom.stages.${opt:stage, 'dev'}.memory}
+    timeout: ${self:custom.stages.${opt:stage, 'dev'}.timeout}s
+
+# ============================================
+# RESOURCES (Google Cloud Resources)
+# ============================================
+
+resources:
+  - type: storage.v1.bucket
+    name: ${self:service}-${opt:stage, 'dev'}-media
+    properties:
+      location: US
+      storageClass: STANDARD
