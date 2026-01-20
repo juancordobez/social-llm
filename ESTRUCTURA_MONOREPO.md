@@ -1,6 +1,10 @@
 # Social-LLM Project Structure
 
-## ☁️ Cloud Provider: Google Cloud Platform
+## ☁️ Stack B: $0/mes
+- **Compute:** Google Cloud Functions (Free tier)
+- **Database:** Supabase (PostgreSQL + pgvector)
+- **Cache:** Upstash Redis (Serverless)
+- **AI/LLM:** Groq (Llama 3.1 70B)
 
 ## 📁 Estructura del Monorepo
 
@@ -33,11 +37,21 @@ social-llm/
 │   └── pyproject.toml         ✅
 ├── 🚀 backend/                 # APIs Serverless (Node.js)
 │   ├── src/
-│   │   ├── functions/         # ⭐ Cloud Functions Handlers
+│   │   ├── adapters/          # ⭐ Adaptadores Stack B
+│   │   │   ├── index.js       ✅ Factory pattern
+│   │   │   ├── base-ai.adapter.js       ✅ Interface AI
+│   │   │   ├── groq.adapter.js          ✅ Groq (Llama 3.1)
+│   │   │   ├── base-database.adapter.js ✅ Interface DB
+│   │   │   ├── supabase.adapter.js      ✅ Supabase
+│   │   │   ├── base-cache.adapter.js    ✅ Interface Cache
+│   │   │   └── upstash.adapter.js       ✅ Upstash Redis
+│   │   ├── functions/         # Cloud Functions Handlers
 │   │   │   ├── health.js      ✅ Health check
 │   │   │   ├── profiles.js    ✅ CRUD perfiles
 │   │   │   ├── content.js     ✅ Generación contenido
 │   │   │   └── analytics.js   ✅ Métricas
+│   │   ├── __tests__/         # Tests
+│   │   │   └── adapters.test.js ✅
 │   │   ├── functions.js       ✅ Entry point
 │   │   ├── dev-server.js      ✅ Servidor desarrollo local
 │   │   ├── config/            # Configuraciones
@@ -56,18 +70,13 @@ social-llm/
 │   │   └── __init__.py
 │   └── utils/              # Utilidades compartidas
 │       └── __init__.py
-├── 🐳 docker/             # Configuración Docker
-│   ├── development/       # Docker para desarrollo
-│   │   └── docker-compose.yml ✅
-│   └── production/        # Docker para producción
 ├── 📋 docs/              # Documentación
 │   ├── architecture.md
 │   ├── api.md
 │   └── deployment.md
 ├── 🏗️ infrastructure/     # IaC (Terraform)
-│   ├── aws/
 │   ├── gcp/
-│   └── azure/
+│   └── (aws/, azure/ - removidos)
 ├── .vscode/              # Configuración VSCode
 │   └── settings.json     ✅
 ├── .env.example          ✅
