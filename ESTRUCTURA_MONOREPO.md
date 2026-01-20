@@ -1,10 +1,12 @@
 # Social-LLM Project Structure
 
+## ☁️ Cloud Provider: Google Cloud Platform
+
 ## 📁 Estructura del Monorepo
 
 ```
 social-llm/
-├── 🧠 brain/                    # Núcleo de IA
+├── 🧠 brain/                    # Núcleo de IA (Python)
 │   ├── core/                    # Componentes principales
 │   │   ├── __init__.py
 │   │   ├── personality_engine.py ✅
@@ -29,24 +31,24 @@ social-llm/
 │   ├── requirements.txt        ✅
 │   ├── setup.cfg              ✅
 │   └── pyproject.toml         ✅
-├── 🚀 backend/                 # APIs y servicios
-│   ├── src/                   # Código fuente
-│   │   ├── controllers/       # Controladores REST
-│   │   │   └── index.js
-│   │   ├── middleware/        # Middleware Express
-│   │   │   └── index.js
-│   │   ├── routes/           # Definición de rutas
-│   │   │   └── index.js
-│   │   ├── services/         # Lógica de negocio
-│   │   │   └── index.js
-│   │   ├── config/           # Configuraciones
-│   │   │   └── index.js
-│   │   └── app.js           # Aplicación principal
-│   ├── tests/               # Tests del backend
-│   │   └── __init__.js
-│   ├── package.json         ✅
-│   ├── .eslintrc.json      ✅
-│   └── .prettierrc         ✅
+├── 🚀 backend/                 # APIs Serverless (Node.js)
+│   ├── src/
+│   │   ├── functions/         # ⭐ Cloud Functions Handlers
+│   │   │   ├── health.js      ✅ Health check
+│   │   │   ├── profiles.js    ✅ CRUD perfiles
+│   │   │   ├── content.js     ✅ Generación contenido
+│   │   │   └── analytics.js   ✅ Métricas
+│   │   ├── functions.js       ✅ Entry point
+│   │   ├── dev-server.js      ✅ Servidor desarrollo local
+│   │   ├── config/            # Configuraciones
+│   │   ├── controllers/       # (Legacy - referencia)
+│   │   └── routes/            # (Legacy - referencia)
+│   ├── prisma/
+│   │   └── schema.prisma      ✅ Modelos de BD
+│   ├── serverless.yml         ✅ Config GCP deploy
+│   ├── package.json           ✅
+│   ├── .eslintrc.json         ✅
+│   └── .prettierrc            ✅
 ├── 🔗 shared/              # Código compartido
 │   ├── types/              # Tipos y esquemas
 │   │   └── __init__.py

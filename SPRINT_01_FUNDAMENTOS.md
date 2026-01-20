@@ -15,10 +15,10 @@ Social Mimic es un agente de IA que gestiona redes sociales como un community ma
 - Aprender continuamente del comportamiento y feedback
 
 ### **ARQUITECTURA OBJETIVO**
-- **Serverless:** AWS Lambda + API Gateway para escalabilidad
+- **Serverless:** Google Cloud Functions para escalabilidad
 - **Agnóstica:** Adaptadores para cambiar servicios sin reescribir código
 - **Modular:** Separación clara entre cerebro (IA), backend (APIs) y frontend
-- **Multi-cloud:** Capacidad de desplegar en AWS, GCP o Azure
+- **Multi-cloud:** Capacidad de desplegar en GCP (primario), AWS o Azure
 
 ---
 
@@ -95,27 +95,27 @@ social-llm/
   - `langchain>=0.1.0` (RAG system)
   - `sentence-transformers>=2.2.2` (embeddings)
 - **Modelo Base:** Llama 3.1 70B (vía Groq API)
-- **Vector DB:** AWS OpenSearch Serverless
+- **Vector DB:** Vertex AI Vector Search / Firestore
 
 #### **DESARROLLO BACKEND**
-- **Compute:** AWS Lambda + API Gateway
+- **Compute:** Google Cloud Functions Gen 2
 - **Lenguajes:** 
   - Python 3.11 (funciones IA)
   - Node.js 20 (APIs sociales)
 - **Frameworks:**
   - FastAPI (Python APIs)
-  - Express.js (Node.js APIs)
-  - Serverless Framework (deployment)
+  - Express.js (Node.js APIs - dev local)
+  - Serverless Framework (deployment GCP)
 - **Databases:**
-  - PostgreSQL (AWS RDS) - datos estructurados
-  - Redis (ElastiCache) - cache y sesiones
-  - OpenSearch Serverless - vectores y búsqueda
+  - Cloud SQL PostgreSQL - datos estructurados
+  - Memorystore Redis - cache y sesiones
+  - Firestore - documentos y vectores
 
 #### **INFRAESTRUCTURA**
 - **IaC:** Terraform + Serverless Framework
 - **Containers:** Docker + Docker Compose
 - **CI/CD:** GitHub Actions
-- **Monitoring:** AWS CloudWatch + X-Ray
+- **Monitoring:** Cloud Logging + Cloud Trace
 
 ### **3. ENTORNO DE DESARROLLO LOCAL**
 
@@ -163,10 +163,10 @@ volumes:
 # Database
 DATABASE_URL="postgresql://dev:dev123@localhost:5432/social_mimic_dev"
 REDIS_URL="redis://localhost:6379"
-OPENSEARCH_URL="http://localhost:9200"
 
 # AI Providers
 GROQ_API_KEY="your_groq_api_key_here"
+GROQ_MODEL="llama-3.1-70b-versatile"
 OPENAI_API_KEY="your_openai_api_key_here"
 
 # Social Media APIs
@@ -178,10 +178,10 @@ TWITTER_ACCESS_TOKEN_SECRET="your_twitter_access_token_secret"
 LINKEDIN_CLIENT_ID="your_linkedin_client_id"
 LINKEDIN_CLIENT_SECRET="your_linkedin_client_secret"
 
-# AWS Configuration
-AWS_ACCESS_KEY_ID="your_aws_access_key"
-AWS_SECRET_ACCESS_KEY="your_aws_secret_key"
-AWS_REGION="us-east-1"
+# Google Cloud Configuration
+GCP_PROJECT="your_gcp_project_id"
+GCP_REGION="us-central1"
+GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account.json"
 
 # Environment
 NODE_ENV="development"

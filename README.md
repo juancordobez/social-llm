@@ -27,9 +27,9 @@ Social Mimic es un agente de IA avanzado diseñado para gestionar redes sociales
 - **Modelos sin censura** para personalidades auténticas (incluso contenido adulto)
 
 ### 🏗️ **Arquitectura Agnóstica** 
-- **Multi-cloud:** Despliega en AWS, GCP o Azure
+- **Multi-cloud:** Despliega en GCP (primario), AWS o Azure
 - **Adaptadores intercambiables:** Cambia entre Groq, OpenAI, modelos locales
-- **Serverless:** Escalabilidad automática con AWS Lambda
+- **Serverless:** Escalabilidad automática con Google Cloud Functions
 - **Modular:** Backend, cerebro y frontend completamente separados
 
 ### 📱 **Integración Social**
@@ -45,12 +45,12 @@ Social Mimic es un agente de IA avanzado diseñado para gestionar redes sociales
 
 | Fase | Estado | Progreso |
 |------|---------|----------|
-| 🏗️ **Estructura Base** | 📋 Planificado | 0% |
-| 🔧 **Backend Foundation** | 📋 Planificado | 0% |
-| 🧠 **Cerebro Foundation** | 📋 Planificado | 0% |
+| 🏗️ **Estructura Base** | ✅ Completado | 100% |
+| 🔧 **Backend Foundation** | � En progreso | 60% |
+| 🧠 **Cerebro Foundation** | 📋 Planificado | 10% |
 | 🚀 **Integración y CI/CD** | 📋 Planificado | 0% |
 
-**📊 Progreso General:** 0/11 tareas completadas  
+**📊 Progreso General:** 4/11 tareas completadas  
 **⏱️ Estimación:** ~70 horas de desarrollo
 
 ### 📋 **Próximas Fases**
@@ -72,8 +72,8 @@ Social Mimic es un agente de IA avanzado diseñado para gestionar redes sociales
 ### **Backend**
 ```
 ⚡ Node.js 20 + Python 3.11
-🚀 AWS Lambda + API Gateway  
-🗄️ PostgreSQL + Redis
+☁️ Google Cloud Functions (Serverless)
+🗄️ Cloud SQL (PostgreSQL) + Redis
 🔧 Serverless Framework
 🐳 Docker + Terraform
 ```
@@ -100,7 +100,7 @@ Social Mimic es un agente de IA avanzado diseñado para gestionar redes sociales
 - Node.js 20+
 - Python 3.11+
 - Docker y Docker Compose
-- AWS CLI configurado
+- Google Cloud SDK (`gcloud`) configurado
 
 ### **Setup Desarrollo**
 ```bash
@@ -117,9 +117,18 @@ docker-compose -f docker/development/docker-compose.yml up -d
 
 # Backend setup
 cd backend && npm install && npm run dev
+# Servidor local en http://localhost:3000
 
 # Brain setup  
 cd brain && pip install -r requirements.txt
+```
+
+### **Endpoints Disponibles (Local)**
+```
+🏥 Health:     http://localhost:3000/health
+👤 Profiles:   http://localhost:3000/api/v1/profiles
+📝 Content:    http://localhost:3000/api/v1/content
+📊 Analytics:  http://localhost:3000/api/v1/analytics
 ```
 
 ### **Primera Tarea** 
@@ -160,7 +169,7 @@ Este proyecto sigue la metodología **Human-in-the-Loop** con agentes especializ
 
 ## 🏷️ Etiquetas
 
-`ai-agent` `social-media` `community-manager` `llm` `serverless` `aws` `typescript` `python` `rag` `vector-db`
+`ai-agent` `social-media` `community-manager` `llm` `serverless` `gcp` `google-cloud-functions` `typescript` `python` `rag` `vector-db`
 
 ---
 
