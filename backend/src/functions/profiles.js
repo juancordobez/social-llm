@@ -4,6 +4,17 @@
  */
 
 const functions = require('@google-cloud/functions-framework');
+const { PersonalityEngine } = require('../core/personality-engine');
+const { getAI } = require('../adapters');
+
+// Initialize PersonalityEngine
+let personalityEngine = null;
+const getPersonalityEngine = () => {
+  if (!personalityEngine) {
+    personalityEngine = new PersonalityEngine({ aiAdapter: getAI() });
+  }
+  return personalityEngine;
+};
 
 /**
  * Profiles handler - Routes requests based on method and path
@@ -89,19 +100,30 @@ const profilesHandler = async (req, res) => {
     const analyzeMatch = path.match(/^\/([^\/]+)\/analyze$/);
     if (method === 'POST' && analyzeMatch) {
       const id = analyzeMatch[1];
+      const { bio, samplePosts, preferences } = req.body;
       console.log(`Analyzing personality for profile: ${id}`);
       
-      // TODO: Implement with Brain PersonalityEngine
+      const engine = getPersonalityEngine();
+      
+      // Analyze personality with PersonalityEngine
+      const traits = await engine.analyzeProfile({
+        bio,
+        samplePosts,
+        preferences,
+      });
+      
+      // Get simplified version for UI
+      const simplified = engine.simplifyTraits(traits);
+      
       return res.status(200).json({
         success: true,
         data: {
           profileId: id,
           personality: {
-            tone: 'professional',
-            style: 'engaging',
-            topics: ['technology', 'innovation'],
-            confidence: 0.85
-          }
+            traits,      // Full traits object
+            simplified,  // Human-readable version
+          },
+          analyzedAt: new Date().toISOString(),
         },
         message: 'Personality analysis completed'
       });

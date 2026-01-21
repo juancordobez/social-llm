@@ -4,6 +4,17 @@
  */
 
 const functions = require('@google-cloud/functions-framework');
+const { PersonalityEngine } = require('../core/personality-engine');
+const { getAI } = require('../adapters');
+
+// Initialize PersonalityEngine (singleton pattern for Cloud Functions)
+let personalityEngine = null;
+const getPersonalityEngine = () => {
+  if (!personalityEngine) {
+    personalityEngine = new PersonalityEngine({ aiAdapter: getAI() });
+  }
+  return personalityEngine;
+};
 
 /**
  * Content handler - Routes requests based on method and path
@@ -37,21 +48,34 @@ const contentHandler = async (req, res) => {
 
     // Route: POST /api/v1/content/generate - Generate new content with AI
     if (method === 'POST' && path === '/generate') {
-      const { profileId, topic, platform, tone } = req.body;
+      const { profileId, topic, platform, personality, context } = req.body;
       console.log(`Generating content for profile: ${profileId}, topic: ${topic}`);
       
-      // TODO: Implement with Brain PersonalityEngine + Groq API
+      const engine = getPersonalityEngine();
+      
+      // Use provided personality or create default
+      const traits = personality || await engine.analyzeProfile({
+        preferences: {
+          tone: { formality: 0.5, humor: 0.3, enthusiasm: 0.6, empathy: 0.5 },
+          topics: [topic],
+          objectives: { primary_goal: 'engagement' },
+        },
+      });
+      
+      // Generate content with PersonalityEngine
+      const result = await engine.generateContent(traits, {
+        topic,
+        platform: platform || 'twitter',
+        contentType: 'post',
+        context,
+      });
+      
       return res.status(201).json({
         success: true,
         data: {
           id: `content-${Date.now()}`,
           profileId,
-          platform,
-          content: `🚀 Sample generated content about ${topic}\n\nThis is AI-generated content that matches the ${tone || 'professional'} tone.\n\n#AI #ContentGeneration`,
-          tone: tone || 'professional',
-          hashtags: ['#AI', '#ContentGeneration', `#${topic}`],
-          createdAt: new Date().toISOString(),
-          aiModel: process.env.GROQ_MODEL || 'llama-3.1-70b-versatile'
+          ...result,
         },
         message: 'Content generated successfully'
       });
