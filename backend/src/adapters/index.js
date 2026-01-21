@@ -9,9 +9,13 @@
 const { GroqAdapter } = require('./groq.adapter');
 const { SupabaseAdapter } = require('./supabase.adapter');
 const { UpstashAdapter } = require('./upstash.adapter');
-const { TwitterManager } = require('./twitter-manager');
-const { TwitterScraperAdapter } = require('./twitter-scraper.adapter');
-const { TwitterAPIAdapter } = require('./twitter-api.adapter');
+
+// Twitter (módulo refactorizado)
+const { 
+  TwitterManager, 
+  TwitterScraperAdapter, 
+  TwitterAPIAdapter 
+} = require('./twitter');
 
 /**
  * Supported adapter types and their implementations

@@ -15,7 +15,7 @@
 require('dotenv').config();
 
 const { TwitterBotService } = require('../src/services/twitter-bot.service');
-const { getTwitter } = require('../src/adapters');
+const { TwitterManager } = require('../src/adapters');
 
 // Colores para consola
 const colors = {
@@ -35,7 +35,7 @@ function log(message, color = 'reset') {
 async function testConnections() {
   log('\n🔍 Testing connections...', 'cyan');
   
-  const twitter = getTwitter();
+  const twitter = new TwitterManager();
   const health = await twitter.healthCheck();
   
   log('\n📊 Connection Status:', 'bright');
@@ -77,7 +77,7 @@ async function testConnections() {
 async function getMentions(limit = 10) {
   log('\n📬 Fetching recent mentions...', 'cyan');
   
-  const twitter = getTwitter();
+  const twitter = new TwitterManager();
   
   if (!process.env.TWITTER_BOT_USERNAME) {
     log('❌ TWITTER_BOT_USERNAME not set in .env', 'red');
@@ -188,7 +188,7 @@ async function startBot(dryRun = false) {
 async function analyzeUser(username) {
   log(`\n🔍 Analyzing user @${username}...`, 'cyan');
   
-  const twitter = getTwitter();
+  const twitter = new TwitterManager();
   
   try {
     const analysis = await twitter.analyzeUser(username);
