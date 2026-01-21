@@ -4,26 +4,32 @@
  * Este módulo permite elegir entre diferentes estrategias
  * de análisis y generación de personalidad.
  * 
+ * Las estrategias viven en brain/strategies/ y se importan aquí.
+ * 
  * ESTRATEGIAS DISPONIBLES:
  * - trait-scoring-v1: Reducción a métricas numéricas (actual)
  * 
  * FUTURAS ESTRATEGIAS:
  * - few-shot-v2: Ejemplos reales en contexto
  * - rag-v3: Retrieval de contenido similar
- * - fine-tune-v4: Modelo ajustado por usuario
  * 
  * @module personality
  */
 
+const path = require('path');
+
+// Ruta al brain (estrategias viven allí)
+const BRAIN_PATH = path.join(__dirname, '../../../../brain/strategies');
+
 // Estrategia actual por defecto
-const TraitScoringV1 = require('./strategies/trait-scoring-v1');
+const TraitScoringV1 = require(path.join(BRAIN_PATH, 'trait-scoring-v1'));
 
 // Mapa de estrategias disponibles
 const STRATEGIES = {
   'trait-scoring-v1': TraitScoringV1,
   // Futuras:
-  // 'few-shot-v2': require('./strategies/few-shot-v2'),
-  // 'rag-v3': require('./strategies/rag-v3'),
+  // 'few-shot-v2': require(path.join(BRAIN_PATH, 'few-shot-v2')),
+  // 'rag-v3': require(path.join(BRAIN_PATH, 'rag-v3')),
 };
 
 // Estrategia por defecto
