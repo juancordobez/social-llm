@@ -9,6 +9,9 @@
 const { GroqAdapter } = require('./groq.adapter');
 const { SupabaseAdapter } = require('./supabase.adapter');
 const { UpstashAdapter } = require('./upstash.adapter');
+const { TwitterManager } = require('./twitter-manager');
+const { TwitterScraperAdapter } = require('./twitter-scraper.adapter');
+const { TwitterAPIAdapter } = require('./twitter-api.adapter');
 
 /**
  * Supported adapter types and their implementations
@@ -145,6 +148,15 @@ const getAI = (config) => getAdapter('ai', config);
 const getDatabase = (config) => getAdapter('database', config);
 const getCache = (config) => getAdapter('cache', config);
 
+// Twitter singleton
+let twitterInstance = null;
+const getTwitter = (config) => {
+  if (!twitterInstance) {
+    twitterInstance = new TwitterManager(config);
+  }
+  return twitterInstance;
+};
+
 module.exports = {
   // Factory functions
   createAdapter,
@@ -157,11 +169,15 @@ module.exports = {
   getAI,
   getDatabase,
   getCache,
+  getTwitter,
   
   // Direct class exports for testing
   GroqAdapter,
   SupabaseAdapter,
   UpstashAdapter,
+  TwitterManager,
+  TwitterScraperAdapter,
+  TwitterAPIAdapter,
   
   // Constants
   ADAPTERS,
