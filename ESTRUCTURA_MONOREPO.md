@@ -44,7 +44,21 @@ social-llm/
 │   │   │   ├── base-database.adapter.js ✅ Interface DB
 │   │   │   ├── supabase.adapter.js      ✅ Supabase
 │   │   │   ├── base-cache.adapter.js    ✅ Interface Cache
-│   │   │   └── upstash.adapter.js       ✅ Upstash Redis
+│   │   │   ├── upstash.adapter.js       ✅ Upstash Redis
+│   │   │   └── twitter/       # 🐦 Módulo Twitter (híbrido)
+│   │   │       ├── index.js   ✅ Punto de entrada
+│   │   │       ├── config.js  ✅ Instancias Nitter + config
+│   │   │       ├── parser.js  ✅ Parser HTML Nitter
+│   │   │       ├── oauth.js   ✅ OAuth 1.0a
+│   │   │       ├── scraper.js ✅ Lectura (Nitter) GRATIS
+│   │   │       ├── api.js     ✅ Escritura (API) 1,500/mes
+│   │   │       └── manager.js ✅ Orquestador
+│   │   ├── core/              # 🧠 Lógica de negocio
+│   │   │   ├── index.js       ✅
+│   │   │   └── personality-engine.js ✅ Motor personalidad
+│   │   ├── services/          # 🤖 Servicios
+│   │   │   ├── index.js       ✅
+│   │   │   └── twitter-bot.service.js ✅ Bot autónomo
 │   │   ├── functions/         # Cloud Functions Handlers
 │   │   │   ├── health.js      ✅ Health check
 │   │   │   ├── profiles.js    ✅ CRUD perfiles
@@ -57,6 +71,8 @@ social-llm/
 │   │   ├── config/            # Configuraciones
 │   │   ├── controllers/       # (Legacy - referencia)
 │   │   └── routes/            # (Legacy - referencia)
+│   ├── scripts/               # 🎮 Scripts CLI
+│   │   └── twitter-bot.js     ✅ CLI del bot Twitter
 │   ├── prisma/
 │   │   └── schema.prisma      ✅ Modelos de BD
 │   ├── serverless.yml         ✅ Config GCP deploy
@@ -71,6 +87,8 @@ social-llm/
 │   └── utils/              # Utilidades compartidas
 │       └── __init__.py
 ├── 📋 docs/              # Documentación
+│   ├── VISION_PRODUCTO.md ✅ Visión estratégica
+│   ├── TWITTER_ADAPTER.md ✅ Doc módulo Twitter
 │   ├── architecture.md
 │   ├── api.md
 │   └── deployment.md
@@ -131,3 +149,45 @@ cd brain
 flake8 .         # Linting check
 black .          # Code formatting
 ```
+
+---
+
+## 🐦 Módulo Twitter (Nuevo)
+
+Integración híbrida: **Lectura gratuita** (Nitter) + **Escritura API** (1,500/mes)
+
+### Estructura
+```
+backend/src/adapters/twitter/
+├── config.js   # Instancias Nitter, timeouts
+├── parser.js   # Extraer tweets/perfiles del HTML
+├── oauth.js    # Firmas OAuth 1.0a para API
+├── scraper.js  # TwitterScraperAdapter (LECTURA)
+├── api.js      # TwitterAPIAdapter (ESCRITURA)
+├── manager.js  # TwitterManager (orquestador)
+└── index.js    # Exporta todo
+```
+
+### Uso rápido
+```javascript
+const { TwitterManager } = require('./src/adapters');
+const twitter = new TwitterManager();
+
+// LEER (gratis via Nitter)
+const tweets = await twitter.getUserTweets('elonmusk', 10);
+const mentions = await twitter.getMentions();
+
+// ESCRIBIR (API, cuenta del límite 1,500/mes)
+await twitter.tweet('Hola mundo!');
+await twitter.reply(tweetId, 'Gracias!');
+```
+
+### CLI de prueba
+```bash
+node backend/scripts/twitter-bot.js test           # Probar conexiones
+node backend/scripts/twitter-bot.js mentions       # Ver menciones
+node backend/scripts/twitter-bot.js start --dry    # Bot modo prueba
+node backend/scripts/twitter-bot.js start          # Bot producción
+```
+
+📖 **Documentación completa:** [docs/TWITTER_ADAPTER.md](./docs/TWITTER_ADAPTER.md)
