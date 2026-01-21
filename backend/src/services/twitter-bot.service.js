@@ -11,7 +11,7 @@
  */
 
 const { getTwitter, getAI, getDatabase, getCache } = require('../adapters');
-const { PersonalityEngine } = require('../core/personality-engine');
+const PersonalityEngine = require('../core/personality');
 
 class TwitterBotService {
   constructor(config = {}) {
@@ -22,7 +22,10 @@ class TwitterBotService {
     this.ai = getAI();
     this.db = getDatabase();
     this.cache = getCache();
-    this.personality = new PersonalityEngine({ aiAdapter: this.ai });
+    
+    // PersonalityEngine v1 - recibe cliente LLM directamente
+    // TODO: El adapter AI debe exponer el cliente subyacente
+    this.personality = new PersonalityEngine(this.ai.client || this.ai);
     
     // Configuración del bot
     this.config = {
@@ -80,6 +83,12 @@ class TwitterBotService {
     if (!this.config.botProfile) {
       this.config.botProfile = this._getDefaultProfile();
       console.log('[TwitterBot] Using default profile');
+    }
+    
+    // Cargar traits en PersonalityEngine v1
+    if (this.config.botProfile.traits) {
+      this.personality.loadTraits(this.config.botProfile.traits);
+      console.log('[TwitterBot] Personality traits loaded');
     }
     
     // Verificar conexiones
@@ -145,29 +154,20 @@ class TwitterBotService {
       // 2. Construir prompt con contexto
       const conversationContext = this._buildConversationContext(mention, userContext);
       
-      // 3. Generar respuesta usando PersonalityEngine
-      const response = await this.personality.generateContent(
-        this.config.botProfile,
-        {
-          type: 'reply',
-          context: conversationContext,
-          constraints: {
-            maxLength: 260, // Dejar margen para el @username
-            mustInclude: [],
-            mustAvoid: ['spam', 'promoción'],
-          },
-        }
-      );
+      // 3. Generar respuesta usando PersonalityEngine v1
+      // Nota: La personalidad debe estar pre-cargada (learn o loadTraits)
+      const responseContent = await this.personality.generate({
+        type: 'reply',
+        context: conversationContext,
+        platform: 'twitter',
+      });
       
-      if (!response.success || !response.content) {
+      if (!responseContent) {
         throw new Error('Failed to generate response');
       }
       
       // 4. Validar calidad de la respuesta
-      const quality = await this.personality.scoreContentMatch(
-        response.content,
-        this.config.botProfile
-      );
+      const quality = await this.personality.evaluate(responseContent);
       
       if (quality.overall < 0.5) {
         console.warn('[TwitterBot] Generated response quality too low, skipping');
@@ -176,14 +176,14 @@ class TwitterBotService {
       
       // 5. Publicar respuesta (o simular en dry-run)
       if (this.config.dryRun) {
-        console.log(`[TwitterBot] [DRY-RUN] Would reply to ${mention.id}:`, response.content);
-        return { success: true, dryRun: true, content: response.content };
+        console.log(`[TwitterBot] [DRY-RUN] Would reply to ${mention.id}:`, responseContent);
+        return { success: true, dryRun: true, content: responseContent };
       }
       
       // Delay para parecer humano
       await this._humanDelay();
       
-      const result = await this.twitter.reply(mention.id, response.content);
+      const result = await this.twitter.reply(mention.id, responseContent);
       
       // 6. Guardar interacción en memoria
       await this._saveInteraction(mention, response.content, result);

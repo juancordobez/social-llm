@@ -1,4 +1,28 @@
 /**
+ * @deprecated Este archivo ha sido refactorizado.
+ * Usa el nuevo módulo modular:
+ * 
+ *   const PersonalityEngine = require('./personality');
+ * 
+ * Este archivo se mantiene temporalmente para referencia.
+ * Será eliminado en futuras versiones.
+ * 
+ * Nuevo módulo: ./personality/
+ * ├── index.js     - Exports
+ * ├── engine.js    - Clase principal
+ * ├── traits.js    - Schema de traits
+ * ├── analyzer.js  - Análisis de contenido
+ * ├── generator.js - Generación de contenido
+ * ├── scorer.js    - Evaluación de autenticidad
+ * └── prompts.js   - Templates de prompts
+ */
+
+console.warn(
+  '[DEPRECATED] personality-engine.js está deprecado. ' +
+  'Usa require("./personality") en su lugar.'
+);
+
+/**
  * Social Mimic - PersonalityEngine
  * @description Motor de análisis y generación de personalidad
  * 
