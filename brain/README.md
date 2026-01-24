@@ -1,6 +1,6 @@
 # 🧠 Brain - Cerebro de Social Mimic
 
-El cerebro del agente autónomo. Aquí vive la lógica de IA, las estrategias de personalidad y el laboratorio de experimentación.
+El cerebro del agente autónomo. Aquí vive la lógica de IA, estrategias de personalidad y el laboratorio de experimentación.
 
 ## 📁 Estructura
 
@@ -17,13 +17,10 @@ brain/
 │
 ├── lab/                     # 🧪 Laboratorio de pruebas
 │   ├── mock-llm.js          # LLM simulado (no consume tokens)
-│   └── test-strategy.js     # Runner de tests para estrategias
+│   └── test-strategy.js     # Runner de tests
 │
 ├── core/                    # 📦 Código Python (referencia/futuro)
-│   └── personality_engine.py
-│
-├── experiments/             # 📓 Experimentos y notebooks
-└── notebooks/               # Jupyter notebooks
+└── experiments/             # 📓 Experimentos y notebooks
 ```
 
 ## 🚀 Probar Estrategias (Sin API)
@@ -45,29 +42,23 @@ node brain/lab/test-strategy.js trait-scoring-v1
 - `few-shot-v2`: Incluir posts reales como ejemplos
 - `rag-v3`: Recuperar contenido similar via embeddings
 
-## � Uso desde Backend
+## 🔗 Uso desde Backend
 
 ```javascript
-// backend/src/core/personality/index.js importa desde aquí
-const PersonalityEngine = require('../../brain/strategies/trait-scoring-v1');
+// backend/src/core/personality importa desde aquí
+const PersonalityEngine = require('../../../brain/strategies/trait-scoring-v1');
 ```
 
 ## 🧪 Laboratorio
 
-El lab permite probar estrategias **sin conectar a APIs reales**:
-
 ```javascript
-const { createMockLLM } = require('./lab/mock-llm');
+const { createMockLLM } = require('./lab');
 
-// LLM simulado - respuestas predefinidas
+// LLM simulado - no gasta tokens
 const mockLLM = createMockLLM();
 const engine = new PersonalityEngine(mockLLM);
 
-// Probar sin gastar tokens
+// Probar sin conectar a APIs
 await engine.learn(posts);
 await engine.generate({ topic: 'test' });
 ```
-
----
-
-*Última actualización: Enero 2026*

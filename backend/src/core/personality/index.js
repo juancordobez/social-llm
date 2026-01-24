@@ -19,17 +19,14 @@
 const path = require('path');
 
 // Ruta al brain (estrategias viven allí)
-const BRAIN_PATH = path.join(__dirname, '../../../../brain/strategies');
+const BRAIN_STRATEGIES = path.join(__dirname, '../../../../brain/strategies');
 
 // Estrategia actual por defecto
-const TraitScoringV1 = require(path.join(BRAIN_PATH, 'trait-scoring-v1'));
+const TraitScoringV1 = require(path.join(BRAIN_STRATEGIES, 'trait-scoring-v1'));
 
 // Mapa de estrategias disponibles
 const STRATEGIES = {
   'trait-scoring-v1': TraitScoringV1,
-  // Futuras:
-  // 'few-shot-v2': require(path.join(BRAIN_PATH, 'few-shot-v2')),
-  // 'rag-v3': require(path.join(BRAIN_PATH, 'rag-v3')),
 };
 
 // Estrategia por defecto
