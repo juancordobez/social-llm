@@ -20,6 +20,8 @@
     "@aws-sdk/client-lambda": "^3.470.0",
     "@aws-sdk/client-s3": "^3.470.0",
     "@prisma/client": "^5.7.1",
+    "@supabase/supabase-js": "^2.91.1",
+    "@xenova/transformers": "^2.17.2",
     "aws-sdk": "^2.1500.0",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",

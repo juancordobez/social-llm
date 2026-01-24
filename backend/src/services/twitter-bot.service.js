@@ -5,13 +5,15 @@
  * Flujo:
  * 1. Escanea menciones nuevas (via Nitter scraping)
  * 2. Analiza contexto del usuario/conversación
- * 3. Genera respuesta personalizada (PersonalityEngine + Groq)
- * 4. Publica respuesta (via Twitter API)
- * 5. Guarda en memoria para contexto futuro
+ * 3. Recupera memorias relevantes (RAG)
+ * 4. Genera respuesta personalizada (PersonalityEngine + Groq)
+ * 5. Publica respuesta (via Twitter API)
+ * 6. Guarda en memoria para contexto futuro
  */
 
 const { getTwitter, getAI, getDatabase, getCache } = require('../adapters');
 const PersonalityEngine = require('../core/personality');
+const { createMemorySystem } = require('../../../brain/memory');
 
 class TwitterBotService {
   constructor(config = {}) {
@@ -26,6 +28,9 @@ class TwitterBotService {
     // PersonalityEngine v1 - recibe cliente LLM directamente
     // TODO: El adapter AI debe exponer el cliente subyacente
     this.personality = new PersonalityEngine(this.ai.client || this.ai);
+    
+    // MemorySystem - se inicializa en initialize()
+    this.memory = null;
     
     // Configuración del bot
     this.config = {
@@ -65,6 +70,29 @@ class TwitterBotService {
    */
   async initialize(botProfileId) {
     console.log('[TwitterBot] Initializing...');
+    
+    // Inicializar MemorySystem (RAG)
+    try {
+      // Obtener cliente Supabase del adapter de database
+      const supabaseClient = this.db.getClient?.() || this.db.client;
+      
+      if (supabaseClient) {
+        // En producción usar 'local', en tests usar 'mock'
+        const embedderType = process.env.NODE_ENV === 'test' ? 'mock' : 'local';
+        
+        this.memory = await createMemorySystem(supabaseClient, {
+          embedderType,
+          defaultLimit: 5,
+          similarityThreshold: 0.7,
+        });
+        console.log('[TwitterBot] MemorySystem initialized ✓');
+      } else {
+        console.warn('[TwitterBot] No Supabase client available, memory disabled');
+      }
+    } catch (error) {
+      console.warn('[TwitterBot] MemorySystem init failed:', error.message);
+      console.warn('[TwitterBot] Bot will work without memory context');
+    }
     
     // Cargar perfil del bot desde la base de datos
     if (botProfileId) {
@@ -151,8 +179,25 @@ class TwitterBotService {
         console.warn('[TwitterBot] Could not get full context:', e.message);
       }
       
-      // 2. Construir prompt con contexto
-      const conversationContext = this._buildConversationContext(mention, userContext);
+      // 2. Obtener memorias relevantes (RAG)
+      let memoryContext = '';
+      if (this.memory) {
+        try {
+          memoryContext = await this.memory.getContext(
+            mention.username, // userId = username de Twitter
+            mention.content,  // query = mensaje actual
+            400               // maxTokens para contexto
+          );
+          if (memoryContext) {
+            console.log(`[TwitterBot] Retrieved memory context (${memoryContext.length} chars)`);
+          }
+        } catch (e) {
+          console.warn('[TwitterBot] Memory retrieval failed:', e.message);
+        }
+      }
+      
+      // 3. Construir prompt con contexto (incluye memorias)
+      const conversationContext = this._buildConversationContext(mention, userContext, memoryContext);
       
       // 3. Generar respuesta usando PersonalityEngine v1
       // Nota: La personalidad debe estar pre-cargada (learn o loadTraits)
@@ -207,12 +252,17 @@ class TwitterBotService {
    * Construir contexto de conversación para el prompt
    * @private
    */
-  _buildConversationContext(mention, userContext) {
+  _buildConversationContext(mention, userContext, memoryContext = '') {
     let context = `
 Usuario @${mention.username} te ha mencionado con este mensaje:
 "${mention.content}"
 
 `;
+
+    // Incluir memoria RAG si existe
+    if (memoryContext) {
+      context += `${memoryContext}\n\n`;
+    }
 
     if (userContext?.user?.bio) {
       context += `Bio del usuario: ${userContext.user.bio}\n`;
@@ -246,10 +296,11 @@ Instrucciones:
   }
 
   /**
-   * Guardar interacción en la base de datos
+   * Guardar interacción en la base de datos y MemorySystem
    * @private
    */
   async _saveInteraction(mention, reply, result) {
+    // 1. Guardar en base de datos tradicional
     try {
       await this.db.create('interactions', {
         id: `int_${Date.now()}`,
@@ -264,7 +315,27 @@ Instrucciones:
         profile_id: this.config.botProfile.id,
       });
     } catch (error) {
-      console.warn('[TwitterBot] Could not save interaction:', error.message);
+      console.warn('[TwitterBot] Could not save interaction to DB:', error.message);
+    }
+
+    // 2. Guardar en MemorySystem (RAG) para contexto futuro
+    if (this.memory) {
+      try {
+        await this.memory.rememberConversation({
+          userId: mention.username,
+          userMessage: mention.content,
+          botResponse: reply,
+          metadata: {
+            platform: 'twitter',
+            mentionId: mention.id,
+            replyId: result?.tweetId,
+            timestamp: new Date().toISOString(),
+          },
+        });
+        console.log(`[TwitterBot] Conversation saved to memory for @${mention.username}`);
+      } catch (error) {
+        console.warn('[TwitterBot] Could not save to memory:', error.message);
+      }
     }
   }
 
@@ -420,6 +491,10 @@ Instrucciones:
       running: this.running,
       twitter: twitterHealth,
       ai: aiHealth,
+      memory: {
+        enabled: !!this.memory,
+        initialized: this.memory?.initialized || false,
+      },
       stats: this.getStats(),
       config: {
         dryRun: this.config.dryRun,
