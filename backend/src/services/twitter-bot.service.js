@@ -4,16 +4,21 @@
  * 
  * Flujo:
  * 1. Escanea menciones nuevas (via Nitter scraping)
- * 2. Analiza contexto del usuario/conversación
- * 3. Recupera memorias relevantes (RAG)
- * 4. Genera respuesta personalizada (PersonalityEngine + Groq)
- * 5. Publica respuesta (via Twitter API)
- * 6. Guarda en memoria para contexto futuro
+ * 2. Brain decide si responder (DecisionMaker + LLM)
+ * 3. Brain genera respuesta (ResponseGenerator + Personalidad)
+ * 4. Publica respuesta (via Twitter API)
+ * 5. Guarda en memoria para contexto futuro (RAG)
+ * 
+ * Componentes:
+ * - Brain: Orquestador central (decisión + generación)
+ * - MemorySystem: Contexto RAG de conversaciones
+ * - Twitter Adapter: Lectura (Nitter) + Escritura (API)
  */
 
 const { getTwitter, getAI, getDatabase, getCache } = require('../adapters');
 const PersonalityEngine = require('../core/personality');
 const { createMemorySystem } = require('../../../brain/memory');
+const { Brain } = require('../../../brain/brain');
 
 class TwitterBotService {
   constructor(config = {}) {
@@ -25,8 +30,12 @@ class TwitterBotService {
     this.db = getDatabase();
     this.cache = getCache();
     
-    // PersonalityEngine v1 - recibe cliente LLM directamente
-    // TODO: El adapter AI debe exponer el cliente subyacente
+    // Brain - Orquestador central (DecisionMaker + ResponseGenerator)
+    // Se inicializa en initialize()
+    this.brain = null;
+    
+    // PersonalityEngine v1 - DEPRECADO, usar Brain
+    // Se mantiene para compatibilidad temporal
     this.personality = new PersonalityEngine(this.ai.client || this.ai);
     
     // MemorySystem - se inicializa en initialize()
@@ -44,7 +53,11 @@ class TwitterBotService {
       responseDelay: config.responseDelay || 5000,
       
       // Probabilidad de responder (0-1) para no parecer bot
+      // NOTA: Con Brain, el DecisionMaker maneja esto inteligentemente
       responseRate: config.responseRate || 0.9,
+      
+      // Usar Brain para decisiones (recomendado)
+      useBrain: config.useBrain !== false, // true por defecto
       
       // Perfil del bot (se carga de la DB)
       botProfile: null,
@@ -113,7 +126,24 @@ class TwitterBotService {
       console.log('[TwitterBot] Using default profile');
     }
     
-    // Cargar traits en PersonalityEngine v1
+    // Inicializar Brain si está habilitado
+    if (this.config.useBrain) {
+      try {
+        this.brain = new Brain({
+          provider: 'groq',
+          traits: this.config.botProfile.traits,
+          memory: this.memory,
+        });
+        await this.brain.initialize();
+        console.log('[TwitterBot] Brain initialized ✓');
+      } catch (error) {
+        console.warn('[TwitterBot] Brain init failed:', error.message);
+        console.warn('[TwitterBot] Falling back to PersonalityEngine');
+        this.config.useBrain = false;
+      }
+    }
+    
+    // Cargar traits en PersonalityEngine v1 (fallback o legacy)
     if (this.config.botProfile.traits) {
       this.personality.loadTraits(this.config.botProfile.traits);
       console.log('[TwitterBot] Personality traits loaded');
@@ -165,87 +195,190 @@ class TwitterBotService {
 
   /**
    * Procesar una mención y generar respuesta
+   * Usa Brain (DecisionMaker + ResponseGenerator) si está disponible
    * @private
    */
   async _processMention(mention) {
     console.log(`[TwitterBot] Processing mention from @${mention.username}: "${mention.content?.slice(0, 50)}..."`);
     
     try {
-      // 1. Obtener contexto del usuario que menciona
-      let userContext = null;
-      try {
-        userContext = await this.twitter.getConversationContext(mention.username, mention.id);
-      } catch (e) {
-        console.warn('[TwitterBot] Could not get full context:', e.message);
+      // === NUEVO: Usar Brain si está disponible ===
+      if (this.config.useBrain && this.brain) {
+        return await this._processMentionWithBrain(mention);
       }
       
-      // 2. Obtener memorias relevantes (RAG)
-      let memoryContext = '';
-      if (this.memory) {
-        try {
-          memoryContext = await this.memory.getContext(
-            mention.username, // userId = username de Twitter
-            mention.content,  // query = mensaje actual
-            400               // maxTokens para contexto
-          );
-          if (memoryContext) {
-            console.log(`[TwitterBot] Retrieved memory context (${memoryContext.length} chars)`);
-          }
-        } catch (e) {
-          console.warn('[TwitterBot] Memory retrieval failed:', e.message);
-        }
-      }
-      
-      // 3. Construir prompt con contexto (incluye memorias)
-      const conversationContext = this._buildConversationContext(mention, userContext, memoryContext);
-      
-      // 3. Generar respuesta usando PersonalityEngine v1
-      // Nota: La personalidad debe estar pre-cargada (learn o loadTraits)
-      const responseContent = await this.personality.generate({
-        type: 'reply',
-        context: conversationContext,
-        platform: 'twitter',
-      });
-      
-      if (!responseContent) {
-        throw new Error('Failed to generate response');
-      }
-      
-      // 4. Validar calidad de la respuesta
-      const quality = await this.personality.evaluate(responseContent);
-      
-      if (quality.overall < 0.5) {
-        console.warn('[TwitterBot] Generated response quality too low, skipping');
-        return { success: false, reason: 'low_quality' };
-      }
-      
-      // 5. Publicar respuesta (o simular en dry-run)
-      if (this.config.dryRun) {
-        console.log(`[TwitterBot] [DRY-RUN] Would reply to ${mention.id}:`, responseContent);
-        return { success: true, dryRun: true, content: responseContent };
-      }
-      
-      // Delay para parecer humano
-      await this._humanDelay();
-      
-      const result = await this.twitter.reply(mention.id, responseContent);
-      
-      // 6. Guardar interacción en memoria
-      await this._saveInteraction(mention, response.content, result);
-      
-      console.log(`[TwitterBot] ✅ Replied to @${mention.username}`);
-      
-      return {
-        success: true,
-        mentionId: mention.id,
-        replyId: result.tweetId,
-        content: response.content,
-      };
+      // === LEGACY: Usar PersonalityEngine v1 ===
+      return await this._processMentionLegacy(mention);
       
     } catch (error) {
       console.error(`[TwitterBot] Error processing mention:`, error.message);
       return { success: false, error: error.message };
     }
+  }
+
+  /**
+   * Procesar mención con Brain (nuevo sistema)
+   * @private
+   */
+  async _processMentionWithBrain(mention) {
+    // 1. Obtener contexto adicional
+    let userContext = null;
+    try {
+      userContext = await this.twitter.getConversationContext(mention.username, mention.id);
+    } catch (e) {
+      console.warn('[TwitterBot] Could not get full context:', e.message);
+    }
+
+    // Formatear mensaje para Brain
+    const message = {
+      id: mention.id,
+      author: mention.username,
+      content: mention.content,
+      isReply: !!mention.replyTo,
+      mentions: mention.mentions || [],
+    };
+
+    // Contexto para Brain
+    const context = {
+      userBio: userContext?.user?.bio,
+      conversation: userContext?.conversationReplies
+        ?.map(r => `@${r.username}: ${r.content?.slice(0, 100)}`)
+        .join('\n'),
+    };
+
+    // 2. Procesar con Brain (decide + genera)
+    const result = await this.brain.process(message, context);
+
+    // 3. Manejar resultado
+    if (result.action === 'ignore') {
+      console.log(`[TwitterBot] Brain decided to ignore: ${result.reason}`);
+      return { success: false, reason: result.reason };
+    }
+
+    if (result.action === 'delayed') {
+      console.log(`[TwitterBot] Brain delayed response: ${result.reason}`);
+      return { success: false, reason: result.reason, retryAfter: result.retryAfter };
+    }
+
+    if (result.action === 'error') {
+      throw new Error(result.error);
+    }
+
+    // 4. Publicar respuesta
+    const responseContent = result.response;
+
+    if (this.config.dryRun) {
+      console.log(`[TwitterBot] [DRY-RUN] Would reply to ${mention.id}:`, responseContent);
+      return { success: true, dryRun: true, content: responseContent, plan: result.plan };
+    }
+
+    // Esperar según timing del scheduler
+    if (result.timing?.delay) {
+      console.log(`[TwitterBot] Waiting ${Math.round(result.timing.delay / 1000)}s before responding...`);
+      await new Promise(r => setTimeout(r, result.timing.delay));
+    }
+
+    const twitterResult = await this.twitter.reply(mention.id, responseContent);
+
+    // 5. Guardar interacción en memoria via Brain
+    await this.brain.saveInteraction({
+      userId: mention.username,
+      type: 'reply',
+      content: `User: ${mention.content}\nBot: ${responseContent}`,
+      metadata: {
+        mentionId: mention.id,
+        replyId: twitterResult.tweetId,
+        plan: result.plan,
+      },
+    });
+
+    console.log(`[TwitterBot] ✅ Replied to @${mention.username} (via Brain)`);
+
+    return {
+      success: true,
+      mentionId: mention.id,
+      replyId: twitterResult.tweetId,
+      content: responseContent,
+      plan: result.plan,
+      usedBrain: true,
+    };
+  }
+
+  /**
+   * Procesar mención con PersonalityEngine (legacy)
+   * @private
+   */
+  async _processMentionLegacy(mention) {
+    // 1. Obtener contexto del usuario que menciona
+    let userContext = null;
+    try {
+      userContext = await this.twitter.getConversationContext(mention.username, mention.id);
+    } catch (e) {
+      console.warn('[TwitterBot] Could not get full context:', e.message);
+    }
+    
+    // 2. Obtener memorias relevantes (RAG)
+    let memoryContext = '';
+    if (this.memory) {
+      try {
+        memoryContext = await this.memory.getContext(
+          mention.username, // userId = username de Twitter
+          mention.content,  // query = mensaje actual
+          400               // maxTokens para contexto
+        );
+        if (memoryContext) {
+          console.log(`[TwitterBot] Retrieved memory context (${memoryContext.length} chars)`);
+        }
+      } catch (e) {
+        console.warn('[TwitterBot] Memory retrieval failed:', e.message);
+      }
+    }
+    
+    // 3. Construir prompt con contexto (incluye memorias)
+    const conversationContext = this._buildConversationContext(mention, userContext, memoryContext);
+    
+    // 4. Generar respuesta usando PersonalityEngine v1
+    const responseContent = await this.personality.generate({
+      type: 'reply',
+      context: conversationContext,
+      platform: 'twitter',
+    });
+    
+    if (!responseContent) {
+      throw new Error('Failed to generate response');
+    }
+    
+    // 5. Validar calidad de la respuesta
+    const quality = await this.personality.evaluate(responseContent);
+    
+    if (quality.overall < 0.5) {
+      console.warn('[TwitterBot] Generated response quality too low, skipping');
+      return { success: false, reason: 'low_quality' };
+    }
+    
+    // 6. Publicar respuesta (o simular en dry-run)
+    if (this.config.dryRun) {
+      console.log(`[TwitterBot] [DRY-RUN] Would reply to ${mention.id}:`, responseContent);
+      return { success: true, dryRun: true, content: responseContent };
+    }
+    
+    // Delay para parecer humano
+    await this._humanDelay();
+    
+    const result = await this.twitter.reply(mention.id, responseContent);
+    
+    // 7. Guardar interacción en memoria
+    await this._saveInteraction(mention, responseContent, result);
+    
+    console.log(`[TwitterBot] ✅ Replied to @${mention.username}`);
+    
+    return {
+      success: true,
+      mentionId: mention.id,
+      replyId: result.tweetId,
+      content: responseContent,
+      usedBrain: false,
+    };
   }
 
   /**

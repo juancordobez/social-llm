@@ -1,12 +1,31 @@
 # 🧠 Brain - Cerebro de Social Mimic
 
-El cerebro del agente autónomo. Aquí vive la lógica de IA, estrategias de personalidad, memoria RAG y el laboratorio de experimentación.
+El cerebro del agente autónomo. Aquí vive la lógica de IA, estrategias de personalidad, memoria RAG, sistema de decisiones y el laboratorio de experimentación.
 
 ## 📁 Estructura
 
 ```
 brain/
-├── strategies/              # 🎯 Estrategias de personalidad (producción)
+├── index.js                 # 📦 Exports principales
+├── brain.js                 # 🎯 Orquestador central (Brain)
+│
+├── decision/                # 🤔 Sistema de decisiones (Issue #9)
+│   ├── index.js             # Factory + exports
+│   ├── strategies/
+│   │   └── langchain-v1/    # Estrategia LangChain + Groq
+│   │       ├── index.js     # DecisionMaker principal
+│   │       ├── models.js    # Factory de LLMs (Groq/OpenAI/etc)
+│   │       ├── prompts.js   # Templates ChatPromptTemplate
+│   │       ├── schemas.js   # Validación Zod
+│   │       ├── evaluator.js # ¿Debo responder? (LLM)
+│   │       ├── planner.js   # ¿Cómo responder? (LLM)
+│   │       ├── scheduler.js # Rate limiting (reglas)
+│   │       └── response-generator.js # Generar contenido
+│   └── lab/
+│       ├── test-decision.js # Tests del DecisionMaker
+│       └── test-brain.js    # Tests del Brain completo
+│
+├── strategies/              # 🎯 Estrategias de personalidad
 │   └── trait-scoring-v1/    # Estrategia actual: métricas numéricas
 │       ├── engine.js        # Clase principal PersonalityEngine
 │       ├── analyzer.js      # Análisis de contenido → traits
@@ -15,7 +34,7 @@ brain/
 │       ├── prompts.js       # Templates de prompts
 │       └── traits.js        # Schema de traits
 │
-├── memory/                  # 🧠 Sistema de memoria RAG
+├── memory/                  # 🧠 Sistema de memoria RAG (Issue #8)
 │   ├── index.js             # Selector de estrategias
 │   ├── strategies/
 │   │   └── supabase-rag-v1/ # Estrategia RAG con pgvector
@@ -36,76 +55,130 @@ brain/
 └── experiments/             # 📓 Experimentos y notebooks
 ```
 
-## 🚀 Probar Estrategias (Sin API)
+## 🚀 Uso Rápido
+
+### Brain (Orquestador Central)
+
+```javascript
+const { Brain, createBrain } = require('./brain');
+
+// Crear e inicializar
+const brain = await createBrain({ provider: 'groq' });
+
+// Cargar personalidad
+brain.loadTraits({
+  tone: { formality: 0.4, humor: 0.5 },
+  topics: ['tecnología', 'startups'],
+});
+
+// Procesar un mensaje (decide + genera respuesta)
+const result = await brain.process({
+  id: '123',
+  author: 'usuario',
+  content: '¿Qué opinas de TypeScript?',
+}, context);
+
+// result = {
+//   action: 'respond',          // o 'ignore', 'delayed', 'error'
+//   response: 'Me encanta...',  // Contenido generado
+//   plan: { strategy: 'opinion', tone: 'casual', length: 'medium' },
+//   timing: { delay: 5000, canRespond: true },
+// }
+```
+
+### DecisionMaker (Solo Decisiones)
+
+```javascript
+const { createDecisionMaker } = require('./brain/decision');
+
+const dm = await createDecisionMaker({ provider: 'groq' });
+
+const decision = await dm.decide(message, context);
+// { action: 'respond', evaluation: {...}, plan: {...}, timing: {...} }
+```
+
+### ResponseGenerator (Solo Generación)
+
+```javascript
+const { createResponseGenerator } = require('./brain/decision');
+
+const rg = await createResponseGenerator({ provider: 'groq' });
+rg.loadTraits(profileTraits);
+
+const response = await rg.generateReply(message, plan, context);
+// { content: '...', type: 'reply', plan: {...} }
+
+const tweet = await rg.generateTweet({ topic: 'IA', tone: 'curious' });
+// { content: '...', type: 'tweet' }
+```
+
+## 🧪 Probar el Sistema
 
 ```bash
-# Probar PersonalityEngine con Mock LLM
-node brain/lab/test-strategy.js trait-scoring-v1
+# Test DecisionMaker (sin LLM y con LLM)
+node brain/decision/lab/test-decision.js
 
-# Probar MemorySystem con Mock Supabase
+# Test Brain completo (decisión + generación)
+node brain/decision/lab/test-brain.js
+
+# Test MemorySystem
 node brain/memory/lab/test-memory.js
+
+# Test PersonalityEngine con Mock LLM
+node brain/lab/test-strategy.js trait-scoring-v1
 ```
 
 ## 🎯 Estrategias Disponibles
 
-### Personalidad: trait-scoring-v1 (Actual)
+### Decisión: langchain-v1 (Actual) ✅
+- **Enfoque:** LangChain + Groq para decisiones inteligentes
+- **Componentes:** Evaluator (LLM) + Planner (LLM) + Scheduler (reglas)
+- **Pros:** Portátil entre LLMs, validación Zod, rate limiting
+- **Estado:** Producción
+
+### Personalidad: trait-scoring-v1
 - **Enfoque:** Reduce personalidad a números 0-1
 - **Pros:** Simple, rápido, bajo consumo
-- **Contras:** Pierde matices
 - **Estado:** Experimental
 
-### Memoria: supabase-rag-v1 (Actual)
+### Memoria: supabase-rag-v1 ✅
 - **Enfoque:** RAG con pgvector en Supabase
 - **Pros:** $0/mes, búsqueda semántica, embeddings locales
-- **Contras:** Requiere setup de schema
-- **Estado:** Experimental
+- **Estado:** Producción
 
-### Planificadas
-- `few-shot-v2`: Incluir posts reales como ejemplos
-- `contextual-rag-v2`: RAG con reranking
-
-## 🔗 Uso desde Backend
+## 🔗 Integración con Twitter Bot
 
 ```javascript
-// Personalidad
-const PersonalityEngine = require('../../../brain/strategies/trait-scoring-v1');
+// En twitter-bot.service.js
+const { Brain } = require('../../../brain/brain');
 
-// Memoria
-const { createMemorySystem } = require('../../../brain/memory');
-const memory = await createMemorySystem(supabaseClient, {
-  embedderType: 'local', // o 'mock' para tests
+// El bot usa Brain automáticamente
+this.brain = new Brain({
+  provider: 'groq',
+  traits: this.config.botProfile.traits,
+  memory: this.memory,
 });
+await this.brain.initialize();
 
-// Recordar conversación
-await memory.rememberConversation({
-  userId: 'user_123',
-  userMessage: 'Hola!',
-  botResponse: 'Qué tal!',
-});
-
-// Obtener contexto para LLM
-const context = await memory.getContext(userId, currentMessage);
+// Procesar mención
+const result = await this.brain.process(mention, context);
+if (result.action === 'respond') {
+  await this.twitter.reply(mention.id, result.response);
+}
 ```
 
-## 🧪 Laboratorio
+## 📊 Flujo de Procesamiento
 
-```javascript
-const { createMockLLM } = require('./lab');
-
-// LLM simulado - no gasta tokens
-const mockLLM = createMockLLM();
-const engine = new PersonalityEngine(mockLLM);
-
-// Probar sin conectar a APIs
-await engine.learn(posts);
-await engine.generate({ topic: 'test' });
 ```
-
-## 📋 Setup Supabase (Memory)
-
-1. Crear proyecto en Supabase
-2. Habilitar extensión pgvector: `CREATE EXTENSION IF NOT EXISTS vector;`
-3. Ejecutar `brain/memory/strategies/supabase-rag-v1/schema.sql`
-4. Configurar variables de entorno:
-   - `SUPABASE_URL`
-   - `SUPABASE_SERVICE_KEY`
+Mención → Brain.process()
+           ├─→ DecisionMaker.decide()
+           │    ├─→ Evaluator: ¿Responder? (LLM)
+           │    │    └─→ quickFilter: spam, muy corto, etc.
+           │    ├─→ Planner: ¿Cómo? (estrategia, tono, longitud)
+           │    └─→ Scheduler: ¿Cuándo? (rate limiting)
+           │
+           └─→ ResponseGenerator.generateReply()
+                ├─→ Traits de personalidad
+                ├─→ Contexto de memoria RAG
+                └─→ Generar respuesta (LLM)
+```
