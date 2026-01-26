@@ -16,8 +16,9 @@ Establecer la infraestructura base, arquitectura agnóstica y cerebro mínimo vi
 
 ### **PROGRESO GENERAL**
 - **Total de tareas:** 11 issues
-- **Completadas:** 7 issues ✅
+- **Completadas:** 8 issues ✅
 - **En progreso:** 1 issue 🔄
+- **Pendientes:** 2 issues 📋
 - **Estimación total:** ~70 horas de desarrollo
 - **Duración estimada:** 2-3 semanas
 
@@ -50,15 +51,22 @@ Establecer la infraestructura base, arquitectura agnóstica y cerebro mínimo vi
 
 **Total Fase 3:** 32 horas ✅
 
-### **🚀 FASE 4: INTEGRACIÓN Y CI/CD** � EN PROGRESO
+### **🚀 FASE 4: INTEGRACIÓN Y CI/CD** 🔄 EN PROGRESO
 | Issue | Título | Complejidad | Estado |
 |-------|--------|-------------|--------|
-| [#10](https://github.com/juancordobez/social-llm/issues/10) | Integración Backend-Cerebro | Media | � En Progreso (~80%) |
+| [#10](https://github.com/juancordobez/social-llm/issues/10) | Integración Backend-Cerebro | Media | ✅ Completado |
 | [#11](https://github.com/juancordobez/social-llm/issues/11) | Pipeline CI/CD | Media | 📋 Pendiente |
 | [#12](https://github.com/juancordobez/social-llm/issues/12) | Infraestructura GCP | Alta | 📋 Pendiente |
 | [#13](https://github.com/juancordobez/social-llm/issues/13) | Documentación Técnica | Baja | 🔄 En progreso |
 
 **Total Fase 4:** 30 horas
+
+### **📋 Pendientes Documentados (Issue #10)**
+> **Sistema de colas asíncronas** diferido a Sprint 02.  
+> Servicios GCP recomendados:
+> - **Cloud Tasks** - Colas de tareas con reintentos
+> - **Cloud Pub/Sub** - Mensajería pub/sub
+> - **Cloud Run Jobs** - Trabajos batch
 
 ---
 
@@ -135,10 +143,10 @@ Establecer la infraestructura base, arquitectura agnóstica y cerebro mínimo vi
 
 ### **Desarrollo**
 - **Issues creadas:** 11 (Sprint 01) + 2 (previas) = 13 total
-- **Issues completadas:** 7/11 (64%)
-- **Commits realizados:** 20+ commits
-- **Tests escritos:** 4 (brain, adapters, personality, integration)
-- **Cobertura de tests:** ~50%
+- **Issues completadas:** 8/11 (73%)
+- **Commits realizados:** 25+ commits
+- **Tests escritos:** 5 (brain, adapters, personality, integration, circuit-breaker)
+- **Cobertura de tests:** ~55%
 
 ### **Infraestructura**
 - **Cloud Provider:** Google Cloud Platform ✅
