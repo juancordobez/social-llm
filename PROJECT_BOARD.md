@@ -55,11 +55,11 @@ Establecer la infraestructura base, arquitectura agnóstica y cerebro mínimo vi
 | Issue | Título | Complejidad | Estado |
 |-------|--------|-------------|--------|
 | [#10](https://github.com/juancordobez/social-llm/issues/10) | Integración Backend-Cerebro | Media | ✅ Completado |
-| [#11](https://github.com/juancordobez/social-llm/issues/11) | Pipeline CI/CD | Media | 📋 Pendiente |
-| [#12](https://github.com/juancordobez/social-llm/issues/12) | Infraestructura GCP | Alta | 📋 Pendiente |
+| [#11](https://github.com/juancordobez/social-llm/issues/11) | Pipeline CI/CD | Media | ✅ Completado |
+| [#12](https://github.com/juancordobez/social-llm/issues/12) | Infraestructura GCP | Alta | ✅ Completado (via Terraform) |
 | [#13](https://github.com/juancordobez/social-llm/issues/13) | Documentación Técnica | Baja | 🔄 En progreso |
 
-**Total Fase 4:** 30 horas
+**Total Fase 4:** 30 horas ✅
 
 ### **📋 Pendientes Documentados (Issue #10)**
 > **Sistema de colas asíncronas** diferido a Sprint 02.  
@@ -143,8 +143,8 @@ Establecer la infraestructura base, arquitectura agnóstica y cerebro mínimo vi
 
 ### **Desarrollo**
 - **Issues creadas:** 11 (Sprint 01) + 2 (previas) = 13 total
-- **Issues completadas:** 8/11 (73%)
-- **Commits realizados:** 25+ commits
+- **Issues completadas:** 10/11 (91%)
+- **Commits realizados:** 30+ commits
 - **Tests escritos:** 5 (brain, adapters, personality, integration, circuit-breaker)
 - **Cobertura de tests:** ~55%
 
