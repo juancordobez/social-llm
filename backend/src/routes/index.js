@@ -10,6 +10,7 @@ const router = express.Router();
 const profileRoutes = require('./profile.routes');
 const contentRoutes = require('./content.routes');
 const analyticsRoutes = require('./analytics.routes');
+const brainRoutes = require('./brain.routes');
 
 // API Info endpoint
 router.get('/', (req, res) => {
@@ -21,6 +22,7 @@ router.get('/', (req, res) => {
       profiles: '/api/v1/profiles',
       content: '/api/v1/content',
       analytics: '/api/v1/analytics',
+      brain: '/api/v1/brain',
     },
     documentation: '/api/v1/docs',
   });
@@ -30,5 +32,6 @@ router.get('/', (req, res) => {
 router.use('/profiles', profileRoutes);
 router.use('/content', contentRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/brain', brainRoutes);
 
 module.exports = router;
