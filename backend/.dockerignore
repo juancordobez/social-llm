@@ -1,0 +1,68 @@
+# ============================================
+# .dockerignore - Social Mimic Backend
+# ============================================
+
+# Dependencies
+node_modules
+**/node_modules
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Test files
+**/__tests__
+**/*.test.js
+**/*.spec.js
+coverage
+.nyc_output
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Development files
+.eslintrc*
+.prettierrc*
+jest.config.js
+tsconfig.json
+nodemon.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist
+build
+
+# Terraform
+infrastructure/
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Python virtual environment
+.venv
+__pycache__
+
+# Misc
+*.tgz
+.cache

@@ -1,0 +1,138 @@
+# ============================================
+# CD Pipeline - Deploy to Production
+# ============================================
+# Ejecuta cuando se hace merge a main
+# - Build Docker image
+# - Push to Artifact Registry
+# - Deploy to Cloud Run (production)
+# - Requiere aprobación manual
+
+name: CD - Deploy Production
+
+on:
+  push:
+    branches: [main]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  SERVICE_NAME: social-mimic-api
+  ARTIFACT_REGISTRY: us-central1-docker.pkg.dev
+
+jobs:
+  # ==========================================
+  # Run Tests Before Deploy
+  # ==========================================
+  pre-deploy-tests:
+    name: 🧪 Pre-Deploy Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📚 Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: 🧪 Run tests
+        working-directory: backend
+        run: npm test -- --passWithNoTests
+        env:
+          NODE_ENV: test
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+  # ==========================================
+  # Deploy to Production
+  # ==========================================
+  deploy-production:
+    name: 🚀 Deploy to Production
+    runs-on: ubuntu-latest
+    needs: pre-deploy-tests
+    environment: production
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: 🛠️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: 🐳 Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+      - name: 🏗️ Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:latest \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:v${{ github.run_number }} \
+            -f backend/Dockerfile \
+            .
+
+      - name: 📤 Push to Artifact Registry
+        run: |
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:latest
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:v${{ github.run_number }}
+
+      - name: 🚀 Deploy to Cloud Run (Production)
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          env_vars: |
+            NODE_ENV=production
+            LOG_LEVEL=info
+          secrets: |
+            GROQ_API_KEY=groq-api-key:latest
+            SUPABASE_URL=supabase-url:latest
+            SUPABASE_ANON_KEY=supabase-anon-key:latest
+          flags: |
+            --allow-unauthenticated
+            --memory=1Gi
+            --cpu=2
+            --min-instances=1
+            --max-instances=10
+            --concurrency=100
+
+      - name: 🔗 Output Service URL
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} --region=${{ env.REGION }} --format='value(status.url)')
+          echo "🎉 Production deployment complete!"
+          echo "URL: $SERVICE_URL"
+          echo "Version: v${{ github.run_number }}"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: 📝 Create Release Tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: `v${{ github.run_number }}`,
+              name: `Release v${{ github.run_number }}`,
+              body: `## Deployment to Production\n\n- Commit: ${{ github.sha }}\n- Date: ${new Date().toISOString()}\n- [View on Cloud Run](https://console.cloud.google.com/run)`,
+              draft: false,
+              prerelease: false
+            })

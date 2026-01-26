@@ -1,0 +1,86 @@
+# ============================================
+# CD Pipeline - Deploy to Staging
+# ============================================
+# Ejecuta cuando se hace merge a stg
+# - Build Docker image
+# - Push to Artifact Registry
+# - Deploy to Cloud Run (staging)
+
+name: CD - Deploy Staging
+
+on:
+  push:
+    branches: [stg]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  SERVICE_NAME: social-mimic-api
+  ARTIFACT_REGISTRY: us-central1-docker.pkg.dev
+
+jobs:
+  deploy-staging:
+    name: 🚀 Deploy to Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: 🛠️ Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: 🐳 Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+      - name: 🏗️ Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:staging \
+            -f backend/Dockerfile \
+            .
+
+      - name: 📤 Push to Artifact Registry
+        run: |
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:staging
+
+      - name: 🚀 Deploy to Cloud Run (Staging)
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}-staging
+          region: ${{ env.REGION }}
+          image: ${{ env.ARTIFACT_REGISTRY }}/${{ env.PROJECT_ID }}/social-mimic/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          env_vars: |
+            NODE_ENV=staging
+            LOG_LEVEL=debug
+          secrets: |
+            GROQ_API_KEY=groq-api-key:latest
+            SUPABASE_URL=supabase-url:latest
+            SUPABASE_ANON_KEY=supabase-anon-key:latest
+          flags: |
+            --allow-unauthenticated
+            --memory=512Mi
+            --cpu=1
+            --min-instances=0
+            --max-instances=5
+            --concurrency=80
+
+      - name: 🔗 Output Service URL
+        run: |
+          echo "🎉 Staging deployment complete!"
+          echo "URL: $(gcloud run services describe ${{ env.SERVICE_NAME }}-staging --region=${{ env.REGION }} --format='value(status.url)')"
