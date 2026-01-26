@@ -182,3 +182,51 @@ Mención → Brain.process()
                 ├─→ Contexto de memoria RAG
                 └─→ Generar respuesta (LLM)
 ```
+
+## ✅ Implementado (Issue #10)
+
+- **Circuit Breaker**: Patrón de resiliencia para proteger contra fallos del LLM
+  - Ubicación: `backend/src/core/circuit-breaker.js`
+  - Integrado en: `backend/src/controllers/brain.controller.js`
+  - Estados: CLOSED → OPEN → HALF_OPEN → CLOSED
+
+## 📋 TODO / No Implementado
+
+### Sistema de Colas para Operaciones Asíncronas
+
+**Estado:** ❌ No implementado (decidido diferir a Sprint 02)
+
+**¿Por qué no se implementó?**
+- Añade complejidad significativa (Redis, workers, jobs)
+- Para MVP con pocas interacciones, síncrono funciona bien
+- Requiere infraestructura adicional
+
+**Servicios de GCP recomendados para implementación futura:**
+
+| Servicio | Uso | Costo |
+|----------|-----|-------|
+| **Cloud Tasks** | Colas de tareas con reintentos y scheduling | ~$0.40/millón de operaciones |
+| **Cloud Pub/Sub** | Mensajería pub/sub para eventos | ~$40/TiB |
+| **Cloud Run Jobs** | Trabajos batch en contenedores | Pay-per-use |
+
+**Implementación futura sugerida:**
+```javascript
+// Ejemplo con Cloud Tasks (pseudocódigo)
+const { CloudTasksClient } = require('@google-cloud/tasks');
+
+app.post('/brain/decide', async (req, res) => {
+  const taskId = await cloudTasks.createTask({
+    queue: 'brain-queue',
+    payload: { message: req.body.message },
+    scheduleTime: Date.now() + 1000,
+  });
+  
+  res.json({ 
+    jobId: taskId, 
+    status: 'queued',
+    checkUrl: `/brain/jobs/${taskId}` 
+  });
+});
+```
+
+**Issue de seguimiento:** Crear issue en Sprint 02 para implementar colas si es necesario.

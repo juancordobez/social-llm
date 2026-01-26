@@ -9,10 +9,23 @@
  * - POST /brain/analyze - Analizar mensaje o perfil
  * - GET  /brain/health - Estado del cerebro
  * - GET  /brain/stats - Estadísticas de uso
+ * 
+ * Features:
+ * - Circuit Breaker para resiliencia ante fallos de LLM
+ * 
+ * @todo Implementar sistema de colas (Cloud Tasks/Pub-Sub) para operaciones async
  */
 
 // Ruta: backend/src/controllers/ -> brain/ (3 niveles arriba)
 const { Brain } = require('../../../brain');
+const { getCircuitBreaker, getAllBreakersStatus } = require('../core/circuit-breaker');
+
+// Circuit breaker para llamadas al LLM
+const llmBreaker = getCircuitBreaker('llm-api', {
+  failureThreshold: 5,      // 5 fallos consecutivos abren el circuito
+  successThreshold: 2,      // 2 éxitos para cerrar desde half-open
+  timeout: 30000,           // 30 segundos antes de reintentar
+});
 
 // Singleton del Brain para reutilizar entre requests
 let brainInstance = null;
@@ -51,6 +64,18 @@ async function getBrain() {
  */
 async function decide(req, res) {
   try {
+    // Verificar circuit breaker antes de procesar
+    if (!llmBreaker.canExecute()) {
+      const status = llmBreaker.getStatus();
+      return res.status(503).json({
+        success: false,
+        error: 'Servicio de IA temporalmente no disponible',
+        code: 'CIRCUIT_OPEN',
+        retryAfter: status.nextAttempt,
+        circuitBreaker: status,
+      });
+    }
+
     const { message, context = {} } = req.body;
 
     if (!message || !message.content) {
@@ -68,6 +93,9 @@ async function decide(req, res) {
     }
 
     const result = await brain.process(message, context);
+    
+    // Marcar éxito en el circuit breaker
+    llmBreaker.onSuccess();
 
     res.json({
       success: true,
@@ -86,6 +114,9 @@ async function decide(req, res) {
     });
 
   } catch (error) {
+    // Marcar fallo en el circuit breaker
+    llmBreaker.onFailure();
+    
     console.error('[BrainController] Error en decide:', error);
     res.status(500).json({
       success: false,
@@ -101,6 +132,17 @@ async function decide(req, res) {
  */
 async function generate(req, res) {
   try {
+    // Verificar circuit breaker antes de procesar
+    if (!llmBreaker.canExecute()) {
+      const status = llmBreaker.getStatus();
+      return res.status(503).json({
+        success: false,
+        error: 'Servicio de IA temporalmente no disponible',
+        code: 'CIRCUIT_OPEN',
+        retryAfter: status.nextAttempt,
+      });
+    }
+
     const { type = 'tweet', topic, tone, message, plan, context = {} } = req.body;
 
     const brain = await getBrain();
@@ -153,6 +195,9 @@ async function generate(req, res) {
         });
     }
 
+    // Marcar éxito en el circuit breaker
+    llmBreaker.onSuccess();
+
     res.json({
       success: true,
       data: {
@@ -167,6 +212,8 @@ async function generate(req, res) {
     });
 
   } catch (error) {
+    // Marcar fallo en el circuit breaker
+    llmBreaker.onFailure();
     console.error('[BrainController] Error en generate:', error);
     res.status(500).json({
       success: false,
@@ -242,6 +289,7 @@ async function analyze(req, res) {
 async function health(req, res) {
   try {
     const isInitialized = brainInstance !== null && brainInstance.initialized;
+    const breakerStatus = llmBreaker.getStatus();
     
     const healthData = {
       status: isInitialized ? 'healthy' : 'initializing',
@@ -250,12 +298,19 @@ async function health(req, res) {
         decisionMaker: isInitialized && brainInstance.decisionMaker ? 'ready' : 'not_ready',
         responseGenerator: isInitialized && brainInstance.responseGenerator ? 'ready' : 'not_ready',
         memory: brainInstance?.memory ? 'connected' : 'not_configured',
+        circuitBreaker: breakerStatus.state,
       },
       provider: brainInstance?.provider || 'groq',
       uptime: brainInstance?.stats?.startTime 
         ? Date.now() - new Date(brainInstance.stats.startTime).getTime()
         : 0,
+      circuitBreaker: breakerStatus,
     };
+
+    // Si el circuit breaker está abierto, marcar como degraded
+    if (breakerStatus.state === 'OPEN') {
+      healthData.status = 'degraded';
+    }
 
     const statusCode = healthData.status === 'healthy' ? 200 : 503;
     res.status(statusCode).json({
